@@ -1,28 +1,38 @@
+using AttendanceTracker.Application.Interfaces;
+using AttendanceTracker.Application.Services;
 using AttendenceTracker.Domain.Entity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
+// ✅ Add services
+builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
 
+// ❌ REMOVE THIS
+// builder.Services.AddOpenApi();
+
+// ✅ Swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// ✅ DB
 var cs = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AttendanceDbContext>(x =>
     x.UseSqlServer(cs));
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// ✅ Enable Swagger (FOR ALL ENVIRONMENTS)
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "API V1");
+    options.RoutePrefix = string.Empty; // 👉 opens at root URL
+});
 
+// ✅ Middleware
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
 
 app.MapControllers();
