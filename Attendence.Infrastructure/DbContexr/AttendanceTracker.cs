@@ -1,52 +1,49 @@
 ﻿using AttendenceTracker.Domain.Entity;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
-namespace AttendenceTracker.Domain.Entity   
+namespace AttendenceTracker.Domain.Entity
 {
     public class AttendanceDbContext : DbContext
     {
-        public AttendanceDbContext(DbContextOptions<AttendanceDbContext> options) : base(options)
-
+        public AttendanceDbContext(DbContextOptions<AttendanceDbContext> options)
+            : base(options)
         {
-
-
         }
+
         public DbSet<User> Users { get; set; }
         public DbSet<Role> Roles { get; set; }
-        public DbSet<UserDetails> UsersDetails { get; set; }
+        public DbSet<UserDetails> UserDetails { get; set; }
         public DbSet<Attendance> Attendances { get; set; }
-
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // User → Role
+            modelBuilder.Entity<Role>()
+                .HasIndex(r => r.RoleName)
+                .IsUnique();
+
             modelBuilder.Entity<User>()
                 .HasOne(u => u.Role)
                 .WithMany(r => r.Users)
-                .HasForeignKey(u => u.RoleID);
+                .HasForeignKey(u => u.RoleID)
+                .OnDelete(DeleteBehavior.Restrict);
 
-            // UserDetails → User
             modelBuilder.Entity<UserDetails>()
-                .HasOne(d => d.User)
+                .HasOne(ud => ud.User)
                 .WithMany(u => u.UserDetails)
-                .HasForeignKey(d => d.UserID);
+                .HasForeignKey(ud => ud.UserID)
+                .OnDelete(DeleteBehavior.Cascade);
 
-            // ✅ Attendance → Student (FIX HERE)
             modelBuilder.Entity<Attendance>()
                 .HasOne(a => a.User)
                 .WithMany(u => u.Attendances)
-                .HasForeignKey(a => a.UserId) // ✅ CORRECT
+                .HasForeignKey(a => a.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // ✅ Attendance → RecordedBy (correct already)
             modelBuilder.Entity<Attendance>()
                 .HasOne(a => a.RecordedUser)
-                .WithMany(u => u.RecordedBy)
+                .WithMany(u => u.RecordedAttendances)
                 .HasForeignKey(a => a.RecordedBy)
                 .OnDelete(DeleteBehavior.Restrict);
         }
