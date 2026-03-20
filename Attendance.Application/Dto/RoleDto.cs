@@ -1,17 +1,12 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace AttendenceTracker.Domain.Entity
+namespace AttendanceTracker.Application.DTOs.Role
 {
-    public class Role
+    public class RoleDTO
     {
-        [Key]
-        public int RoleID { get; set; }
-
         [Required]
         public string RoleName { get; set; } = string.Empty;
 
         public string? Description { get; set; }
-
-        public ICollection<User> Users { get; set; } = new List<User>();
     }
 }

@@ -1,8 +1,6 @@
 ﻿using AttendanceTracker.Application.Interfaces;
 using AttendenceTracker.Domain.Entity;
 using Microsoft.EntityFrameworkCore;
-using AttendenceTracker.Domain.Entity;
-using Microsoft.EntityFrameworkCore;
 
 namespace AttendanceTracker.Application.Services
 {
@@ -38,8 +36,9 @@ namespace AttendanceTracker.Application.Services
             if (existing == null) return null;
 
             existing.RoleName = role.RoleName;
-            await _context.SaveChangesAsync();
+            existing.Description = role.Description;
 
+            await _context.SaveChangesAsync();
             return existing;
         }
 

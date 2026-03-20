@@ -1,40 +1,83 @@
 using AttendanceTracker.Application.Interfaces;
 using AttendanceTracker.Application.Services;
 using AttendenceTracker.Domain.Entity;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ✅ Add services
-builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddControllers();
 
-// ❌ REMOVE THIS
-// builder.Services.AddOpenApi();
-
-// ✅ Swagger
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// ✅ DB
 var cs = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<AttendanceDbContext>(x =>
-    x.UseSqlServer(cs));
+builder.Services.AddDbContext<AttendanceDbContext>(options =>
+    options.UseSqlServer(cs));
+
+builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IAttendanceService, AttendanceService>();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Attendance Tracker API",
+        Version = "v1"
+    });
+
+    var securityScheme = new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        In = ParameterLocation.Header,
+        Description = "Enter token like this: Bearer {your token}"
+    };
+
+    options.AddSecurityDefinition("Bearer", securityScheme);
+
+    options.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecuritySchemeReference("Bearer"),
+            new List<string>()
+        }
+    });
+});
 
 var app = builder.Build();
 
-// ✅ Enable Swagger (FOR ALL ENVIRONMENTS)
 app.UseSwagger();
-app.UseSwaggerUI(options =>
+app.UseSwaggerUI(c =>
 {
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "API V1");
-    options.RoutePrefix = string.Empty; // 👉 opens at root URL
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Attendance Tracker API v1");
+    c.RoutePrefix = string.Empty;
 });
 
-// ✅ Middleware
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();

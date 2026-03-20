@@ -1,10 +1,11 @@
-﻿using AttendanceTracker.Application.Interfaces;
+﻿using AttendanceTracker.Application.DTOs.Role;
+using AttendanceTracker.Application.Interfaces;
 using AttendenceTracker.Domain.Entity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AttendanceTracker.API.Controllers
 {
-    [Route("api/roles")] // ✅ different route to avoid conflicts
+    [Route("api/roles")]
     [ApiController]
     public class RoleController : ControllerBase
     {
@@ -31,15 +32,28 @@ namespace AttendanceTracker.API.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create(Role role)
+        public async Task<IActionResult> Create(RoleDTO dto)
         {
+            var role = new Role
+            {
+                RoleName = dto.RoleName,
+                Description = dto.Description
+            };
+
             var result = await _roleService.CreateAsync(role);
             return Ok(result);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, Role role)
+        public async Task<IActionResult> Update(int id, RoleDTO dto)
         {
+            var role = new Role
+            {
+                RoleID = id,
+                RoleName = dto.RoleName,
+                Description = dto.Description
+            };
+
             var result = await _roleService.UpdateAsync(id, role);
             if (result == null) return NotFound();
 
