@@ -24,6 +24,8 @@ namespace AttendanceTracker.API.Controllers
             return Ok(await _service.GetAllAsync());
         }
 
+      
+
         [HttpGet("{id}")]
         [Authorize]
         public async Task<IActionResult> GetById(int id)
@@ -34,19 +36,13 @@ namespace AttendanceTracker.API.Controllers
             return Ok(user);
         }
 
-        [HttpPost]
-        public async Task<IActionResult> Create(UserDTO dto)
+        [HttpPost("login")]
+        public async Task<IActionResult> Login(LoginDto dto)
         {
-            var user = new User
-            {
-                UserName = dto.UserName,
-                Email = dto.Email,
-                RoleID = dto.RoleID,
-                CreatedAt = DateTime.Now,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password)
-            };
+            var result = await _service.LoginAsync(dto.UserName, dto.Password);
+            if (result == null)
+                return Unauthorized("Invalid username or password");
 
-            var result = await _service.CreateAsync(user);
             return Ok(result);
         }
 
@@ -77,14 +73,6 @@ namespace AttendanceTracker.API.Controllers
             return Ok("Deleted Successfully");
         }
 
-        [HttpPost("login")]
-        public async Task<IActionResult> Login(LoginDto dto)
-        {
-            var result = await _service.LoginAsync(dto.UserName, dto.Password);
-            if (result == null)
-                return Unauthorized("Invalid username or password");
-
-            return Ok(result);
-        }
+       
     }
 }

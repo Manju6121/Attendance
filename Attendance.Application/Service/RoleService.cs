@@ -15,41 +15,76 @@ namespace AttendanceTracker.Application.Services
 
         public async Task<IEnumerable<Role>> GetAllAsync()
         {
-            return await _context.Roles.ToListAsync();
+            try
+            {
+                return await _context.Roles.ToListAsync();
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
 
         public async Task<Role?> GetByIdAsync(int id)
         {
-            return await _context.Roles.FindAsync(id);
+            try
+            {
+                return await _context.Roles.FindAsync(id);
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
 
         public async Task<Role> CreateAsync(Role role)
         {
-            _context.Roles.Add(role);
-            await _context.SaveChangesAsync();
-            return role;
+            try
+            {
+                _context.Roles.Add(role);
+                await _context.SaveChangesAsync();
+                return role;
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
 
         public async Task<Role?> UpdateAsync(int id, Role role)
         {
-            var existing = await _context.Roles.FindAsync(id);
-            if (existing == null) return null;
+            try
+            {
+                var existing = await _context.Roles.FindAsync(id);
+                if (existing == null) return null;
 
-            existing.RoleName = role.RoleName;
-            existing.Description = role.Description;
+                existing.RoleName = role.RoleName;
+                existing.Description = role.Description;
 
-            await _context.SaveChangesAsync();
-            return existing;
+                await _context.SaveChangesAsync();
+                return existing;
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
 
         public async Task<bool> DeleteAsync(int id)
         {
-            var role = await _context.Roles.FindAsync(id);
-            if (role == null) return false;
+            try
+            {
+                var role = await _context.Roles.FindAsync(id);
+                if (role == null) return false;
 
-            _context.Roles.Remove(role);
-            await _context.SaveChangesAsync();
-            return true;
+                _context.Roles.Remove(role);
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
     }
 }
