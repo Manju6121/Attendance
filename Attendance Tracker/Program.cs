@@ -1,5 +1,6 @@
 using AttendanceTracker.API.Filters;
 using AttendanceTracker.Application.Interfaces;
+using AttendanceTracker.Application.Mapping;
 using AttendanceTracker.Application.Services;
 using AttendenceTracker.Domain.Entity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -8,7 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.Services.AddAutoMapper(typeof(MappingProfile));     
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<GlobalExceptionFilter>();
