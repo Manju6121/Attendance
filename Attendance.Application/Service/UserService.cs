@@ -1,6 +1,7 @@
 ﻿using AttendanceTracker.Application.DTOs;
 using AttendanceTracker.Application.Interfaces;
 using AttendenceTracker.Domain.Entity;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -14,183 +15,123 @@ namespace AttendanceTracker.Application.Services
     {
         private readonly AttendanceDbContext _context;
         private readonly IConfiguration _config;
+        private readonly IMapper _mapper;
 
-        public UserService(AttendanceDbContext context, IConfiguration config)
+        public UserService(AttendanceDbContext context, IConfiguration config, IMapper mapper)
         {
             _context = context;
             _config = config;
+            _mapper = mapper;
         }
 
         public async Task<IEnumerable<UserResponseDTO>> GetAllAsync()
         {
-            try
-            {
-                var users = await _context.Users
-                    .Include(u => u.Role)
-                    .Include(u => u.UserDetails)
-                    .ToListAsync();
+            var users = await _context.Users
+                .Include(u => u.Role)
+                .Include(u => u.UserDetails)
+                .ToListAsync();
 
-                return users.Select(MapUserToResponse).ToList();
-            }
-            catch
-            {
-                throw;
-            }
+            var dtoList = _mapper.Map<List<UserResponseDTO>>(users);
+
+            return dtoList;
         }
 
         public async Task<UserResponseDTO?> GetByIdAsync(int id)
         {
-            try
-            {
-                var user = await _context.Users
-                    .Include(u => u.Role)
-                    .Include(u => u.UserDetails)
-                    .FirstOrDefaultAsync(x => x.Id == id);
+            var user = await _context.Users
+                .Include(u => u.Role)
+                .Include(u => u.UserDetails)
+                .FirstOrDefaultAsync(x => x.Id == id);
 
-                if (user == null) return null;
+            if (user == null) return null;
 
-                return MapUserToResponse(user);
-            }
-            catch
-            {
-                throw;
-            }
+            var dto = _mapper.Map<UserResponseDTO>(user);
+
+            return dto;
         }
 
         public async Task<UserResponseDTO> CreateAsync(User user)
         {
-            try
-            {
-                _context.Users.Add(user);
-                await _context.SaveChangesAsync();
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
 
-                var createdUser = await _context.Users
-                    .Include(u => u.Role)
-                    .Include(u => u.UserDetails)
-                    .FirstAsync(x => x.Id == user.Id);
+            var createdUser = await _context.Users
+                .Include(u => u.Role)
+                .Include(u => u.UserDetails)
+                .FirstAsync(x => x.Id == user.Id);
 
-                return MapUserToResponse(createdUser);
-            }
-            catch
-            {
-                throw;
-            }
+            return _mapper.Map<UserResponseDTO>(createdUser);
         }
 
         public async Task<UserResponseDTO?> UpdateAsync(int id, User user, string? password = null)
         {
-            try
+            var existing = await _context.Users.FindAsync(id);
+            if (existing == null) return null;
+
+            existing.UserName = user.UserName;
+            existing.Email = user.Email;
+            existing.RoleID = user.RoleID;
+
+            if (!string.IsNullOrWhiteSpace(password))
             {
-                var existing = await _context.Users.FindAsync(id);
-                if (existing == null) return null;
-
-                existing.UserName = user.UserName;
-                existing.Email = user.Email;
-                existing.RoleID = user.RoleID;
-
-                if (!string.IsNullOrWhiteSpace(password))
-                {
-                    existing.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
-                }
-
-                await _context.SaveChangesAsync();
-
-                var updatedUser = await _context.Users
-                    .Include(u => u.Role)
-                    .Include(u => u.UserDetails)
-                    .FirstAsync(x => x.Id == id);
-
-                return MapUserToResponse(updatedUser);
+                existing.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
             }
-            catch
-            {
-                throw;
-            }
+
+            await _context.SaveChangesAsync();
+
+            var updatedUser = await _context.Users
+                .Include(u => u.Role)
+                .Include(u => u.UserDetails)
+                .FirstAsync(x => x.Id == id);
+
+            return _mapper.Map<UserResponseDTO>(updatedUser);
         }
 
         public async Task<bool> DeleteAsync(int id)
         {
-            try
-            {
-                var user = await _context.Users.FindAsync(id);
-                if (user == null) return false;
+            var user = await _context.Users.FindAsync(id);
+            if (user == null) return false;
 
-                _context.Users.Remove(user);
-                await _context.SaveChangesAsync();
-                return true;
-            }
-            catch
-            {
-                throw;
-            }
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+            return true;
         }
 
         public async Task<LoginResponseDTO?> LoginAsync(string username, string password)
         {
-            try
+            var user = await _context.Users
+                .Include(u => u.Role)
+                .Include(u => u.UserDetails)
+                .FirstOrDefaultAsync(x => x.UserName == username);
+
+            if (user == null) return null;
+
+            bool isValid = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
+            if (!isValid) return null;
+
+            var claims = new List<Claim>
             {
-                var user = await _context.Users
-                    .Include(u => u.Role)
-                    .Include(u => u.UserDetails)
-                    .FirstOrDefaultAsync(x => x.UserName == username);
+                new Claim(ClaimTypes.Name, user.UserName),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Role, user.Role?.RoleName ?? "")
+            };
 
-                if (user == null) return null;
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
 
-                bool isValid = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
-                if (!isValid) return null;
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-                var claims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.Name, user.UserName),
-                    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                    new Claim(ClaimTypes.Role, user.Role?.RoleName ?? "")
-                };
+            var token = new JwtSecurityToken(
+                issuer: _config["Jwt:Issuer"],
+                audience: _config["Jwt:Audience"],
+                claims: claims,
+                expires: DateTime.Now.AddHours(1),
+                signingCredentials: creds);
 
-                var key = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
-
-                var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-                var token = new JwtSecurityToken(
-                    issuer: _config["Jwt:Issuer"],
-                    audience: _config["Jwt:Audience"],
-                    claims: claims,
-                    expires: DateTime.Now.AddHours(1),
-                    signingCredentials: creds);
-
-                return new LoginResponseDTO
-                {
-                    Token = new JwtSecurityTokenHandler().WriteToken(token),
-                    User = MapUserToResponse(user)
-                };
-            }
-            catch
+            return new LoginResponseDTO
             {
-                throw;
-            }
-        }
-
-        private static UserResponseDTO MapUserToResponse(User user)
-        {
-            return new UserResponseDTO
-            {
-                Id = user.Id,
-                UserName = user.UserName,
-                Email = user.Email,
-                RoleID = user.RoleID,
-                RoleName = user.Role?.RoleName ?? "",
-                CreatedAt = user.CreatedAt,
-                UserDetails = user.UserDetails.Select(d => new UserDetailsDTO
-                {
-                    UserID = d.UserID,
-                    FullName = d.FullName,
-                    DOB = d.DOB,
-                    Gender = d.Gender,
-                    PhoneNumber = d.PhoneNumber,
-                    Address = d.Address,
-                    Department = d.Department,
-                    Year = d.Year
-                }).ToList()
+                Token = new JwtSecurityTokenHandler().WriteToken(token),
+                User = _mapper.Map<UserResponseDTO>(user)
             };
         }
     }
