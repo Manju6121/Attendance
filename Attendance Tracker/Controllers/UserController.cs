@@ -72,7 +72,21 @@ namespace AttendanceTracker.API.Controllers
 
             return Ok("Deleted Successfully");
         }
+        [HttpPost]
+        public async Task<IActionResult> Create(UserUpdateDto dto)
+        {
+            var user = new User
+            {
+                UserName = dto.UserName,
+                Email = dto.Email,
+                RoleID = dto.RoleID,
+                CreatedAt = DateTime.Now,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password)
+            };
 
-       
+            var result = await _service.CreateAsync(user);
+            return Ok(result);
+        }
+
     }
 }
